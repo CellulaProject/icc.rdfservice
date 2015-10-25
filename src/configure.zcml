@@ -1,0 +1,14 @@
+
+<configure xmlns="http://namespaces.zope.org/zope">
+
+  <include package="zope.component" file="meta.zcml" />
+  <include package="icc.restfuldocs" />
+  <include package="icc.contentstorage" />
+
+  <!--
+  <include package="icc.rake.models" />
+  <include package="icc.rake.views" />
+  <include package="icc.rake.modules" />
+  -->
+
+</configure>
