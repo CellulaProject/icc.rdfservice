@@ -14,14 +14,13 @@ dev:	env
 
 install: env
 	$(PYTHON) setup.py install
-	
-edit:	
-	cd src && emacs 
 
-test:	
+edit:
+	cd src && emacs
+
+test:
 	ip a | grep 2001
 	ip a | grep 172.
 	. $(V)/bin/activate
-	pserve $(INI).ini --reload
+	$(V)/bin/pserve $(INI).ini --reload
 	#cd src && $(PYTHON) app.py
-

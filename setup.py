@@ -31,6 +31,7 @@ setup(name='icc.rdfservice',
 	'pyramid==1.6a2',
 	'waitress==0.8.11dev0ipv6-1',
 	'cornice==1.2.0.dev0',
+	'zope.component [zcml]',
         ],
       dependency_links = [
         'https://github.com/eugeneai/rdflib-kyotocabinet/archive/master.zip#egg=rdflib-kyotocabinet-0.1',
