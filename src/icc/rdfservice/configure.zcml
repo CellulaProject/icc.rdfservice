@@ -1,7 +1,3 @@
 
 <configure xmlns="http://namespaces.zope.org/zope">
-  <utility 
-    component="icc.restfuldocs.utilities.storage"
-    name="documents"
-    />
 </configure>
