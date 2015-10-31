@@ -10,6 +10,7 @@ env:
 	[ -d $(V) ] || virtualenv  $(V)
 
 dev:	env
+	$(V)/bin/pip install rdflib
 	$(PYTHON) setup.py develop
 
 install: env
