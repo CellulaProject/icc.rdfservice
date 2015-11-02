@@ -1,3 +1,5 @@
 
 <configure xmlns="http://namespaces.zope.org/zope">
+<!-- Declaration KyotoCabinet storage -->
+<!-- Declaration Memory storage -->
 </configure>
