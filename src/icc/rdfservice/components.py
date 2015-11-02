@@ -5,6 +5,7 @@ import rdflib, rdflib.graph
 import os, os.path
 from icc.rdfservice.namespace import *
 from rdflib import Literal, BNode, URIRef
+import datetime
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -134,9 +135,9 @@ class RDFStorage(object):
             # remove duplicates
             values=set(values)
             for v in values:
-                yield self.convert_one(key, v, things)
+                yield from self.convert_one(key, v, things)
         else:
-            yield self.convert_one(key, values, things)
+            yield from self.convert_one(key, values, things)
 
     def convert_one(self, key, value, things):
         """Convert one key-value pair in context of other things.
@@ -156,27 +157,42 @@ class DocMetadataStorage(RDFStorage):
 
     def convert_one(self, k, v, ths):
         if k in self.KEYS:
-            method_name = KEYS[k]
-            mehod=getattr(self, method_name)
-            for rc in method(self, v, ths):
-                yield rc
+            method_name = self.KEYS[k]
+            method=getattr(self, method_name)
+            yield from method(v, ths)
         else:
             print ("\n========================")
             print ("CNV: ", k, "->", str(v)[:100])
-        return (None, None, None)
+            yield (None, None, None)
 
-    def _id(hash_id, ths):
+    def _id(self, hash_id, ths):
         anno = BNode()
-        yield (anno, OA.hasTarget, Literal(hash_id))
-        yield (anno, NMO.contentMimeType, Literal())
+
+        # Anotation target
+        target = BNode()
+        yield (anno, OA.hasTarget, target)
+        yield (target, NAO.identifier, Literal(hash_id))
+        yield from self.p("Content-Type", target, NMO.mimeType, ths)
+        yield (target, RDF.type, NFO.TextDocument)
+        yield from self.p("File-Name", target, RDFS.label, ths)
+
+        # Annotation itself
         if 'text-id' in ths:
             body = BNode()
             yield (anno, OA.hasBody, body)
-            yield (body, ,Literal(ths['textid']))
+            yield (body, NAO.identifier,Literal(ths['text-id']))
 
-    def p(self, key, s, o, ths):
+        # User
+        yield (anno, NAO.creator, Literal(ths["user-id"]))
+        now=datetime.datetime.now()
+        ts=now.strftime("%Y-%m-%d %H:%M")
+        yield (anno, NAO.created, Literal(ts,datatype=XSD.date))
+
+    def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
-            yield (s, o, ths["key"])
+            yield (s, o, cls(ths[key]))
+        else:
+            yield (None, None, None)
 
 class OrgStorage(RDFStorage):
     graph_name='org'
