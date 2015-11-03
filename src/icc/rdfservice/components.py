@@ -122,7 +122,9 @@ class RDFStorage(object):
         g=self.graph
         for k,v in things.items():
             for s,p,o in self.convert(k,v, things):
-                if s!=None:
+                if None in [s,p,o]:
+                    continue
+                else:
                     g.add((s,p,o))
 
         g.commit()
@@ -155,6 +157,12 @@ class DocMetadataStorage(RDFStorage):
         "id":"_id"
     }
 
+    NPM_FILTER=set([
+        "nco:fullname",
+        "nfo:tableOfContents",
+        "nco:creator",
+        ])
+
     def convert_one(self, k, v, ths):
         if k in self.KEYS:
             method_name = self.KEYS[k]
@@ -173,19 +181,28 @@ class DocMetadataStorage(RDFStorage):
         yield (anno, OA.hasTarget, target)
         yield (target, NAO.identifier, Literal(hash_id))
         yield from self.p("Content-Type", target, NMO.mimeType, ths)
-        yield (target, RDF.type, NFO.TextDocument)
+        if "rdf:type" in ths:
+            yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
+        else:
+            yield (target, RDF.type, NFO.Document)
         yield from self.p("File-Name", target, RDFS.label, ths)
 
         # Annotation itself
         if 'text-id' in ths:
             body = BNode()
             yield (anno, OA.hasBody, body)
-            yield (body, NAO.identifier,Literal(ths['text-id']))
+            yield (body, NAO.identifier, Literal(ths['text-id']))
+            if ths['text-body'].upper().find("</BODY") >= 0:
+                yield (body, NMO.mimeType, Literal("text/html"))
+                yield (body, RDF.type, NFO.HtmlDocument)
+            else:
+                yield (body, NMO.mimeType, Literal("text/plain"))
+                yield (body, RDF.type, NFO.PlainTextDocument)
 
         # User
         yield (anno, NAO.creator, Literal(ths["user-id"]))
-        now=datetime.datetime.now()
-        ts=now.strftime("%Y-%m-%d %H:%M")
+        utcnow=datetime.datetime.utcnow()
+        ts=utcnow.strftime("%Y-%m-%d %H:%M")
         yield (anno, NAO.created, Literal(ts,datatype=XSD.date))
 
     def p(self, key, s, o, ths, cls=Literal):
@@ -194,5 +211,54 @@ class DocMetadataStorage(RDFStorage):
         else:
             yield (None, None, None)
 
+    def rdf(self, s, ths, filter_out=None):
+        """Generate all found rdf relations,
+        except mentioned in thw filter_out set."""
+        for key, val in ths.items():
+            ks=key.split(":", maxsplit=1)
+            if len(ks)!=2:
+                continue
+            key=ou(key)
+            if type(val) in [int, float]:
+                yield (s, key, Literal(val))
+                return
+            if val.startswith('"') and val.endswith('"'):
+                val=val.strip('"')
+                yield (s, key, Literal(val))
+                return
+            if val.startswith("'") and val.endswith("'"):
+                val=val.strip("'")
+                yield (s, key, Literal(val))
+                return
+            vs=val.split(":", maxsplit=1)
+            if len(val)!=2:
+                print ("Strange object value: ", val, "for property:", key)
+                yield (None, None, None)
+                break
+            yield (s, key, ou(val))
+
+
 class OrgStorage(RDFStorage):
     graph_name='org'
+
+    def name(self, ):
+                   """
+                   """
+
+
+
+def ou(lit):
+    """Converts string xxx:yyy to global
+    space object XXX.yyy"""
+
+    ns, ent = lit.split(":")
+    try:
+        ns=globals()[ns.upper()]
+    except KeyError:
+        return None
+
+    try:
+        rc=getattr(ns, ent)
+    except AttributeError:
+        rc=None
+    return rc
