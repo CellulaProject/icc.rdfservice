@@ -6,6 +6,7 @@ import os, os.path
 from icc.rdfservice.namespace import *
 from rdflib import Literal, BNode, URIRef
 import datetime
+from collections import OrderedDict
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -35,7 +36,7 @@ class RDFService(object):
             self.init_storage(sto)
 
         graphs_descr=config['graphs']
-        self.graphs={}
+        self.graphs=OrderedDict()
         self.ns_man=None
 
         all_descr=graphs_descr['all']
@@ -103,6 +104,18 @@ class RDFService(object):
         self.graphs[name]=graph
         GSM=getGlobalSiteManager()
         GSM.registerUtility(graph, IGraph, name=name)
+
+    def __del__(self):
+        print ("Terminating graph storage ....")
+        graphs=self.graphs.keys()
+        graphs.reverse()
+        for gk in graphs:
+            g=self.graphs[gk]
+            g.commit()
+            g.close(True)
+
+
+
 
 @implementer(IRDFStorage)
 class RDFStorage(object):

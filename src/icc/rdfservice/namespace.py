@@ -18,18 +18,18 @@ TRIG=Namespace("http://www.w3.org/2004/03/trix/rdfg-1/")	 # TriG Named Graphs"""
 
 #NEPOMUK ontolgies http://www.semanticdesktop.org/ontologies/
 
-NRL=Namespace("http://www.semanticdesktop.org/ontologies/2007/08/15/nrl")
-NAO=Namespace("http://www.semanticdesktop.org/ontologies/2007/08/15/nao")
-NIE=Namespace("http://www.semanticdesktop.org/ontologies/2007/01/19/nie")
-NFO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nfo")
+NRL=Namespace("http://www.semanticdesktop.org/ontologies/2007/08/15/nrl#")
+NAO=Namespace("http://www.semanticdesktop.org/ontologies/2007/08/15/nao#")
+NIE=Namespace("http://www.semanticdesktop.org/ontologies/2007/01/19/nie#")
+NFO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#")
 
-NCO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nco")
-NFO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nfo")
-NMO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nmo")
-NCAL=Namespace("http://www.semanticdesktop.org/ontologies/2007/04/02/ncal")
-NEXIF=Namespace("http://www.semanticdesktop.org/ontologies/2007/05/10/nexif")
-NID3=Namespace("http://www.semanticdesktop.org/ontologies/2007/05/10/nid3")
-NMM=Namespace("http://www.semanticdesktop.org/ontologies/2009/02/19/nmm")
+NCO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nco#")
+NFO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#")
+NMO=Namespace("http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#")
+NCAL=Namespace("http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#")
+NEXIF=Namespace("http://www.semanticdesktop.org/ontologies/2007/05/10/nexif#")
+NID3=Namespace("http://www.semanticdesktop.org/ontologies/2007/05/10/nid3#")
+NMM=Namespace("http://www.semanticdesktop.org/ontologies/2009/02/19/nmm#")
 
 PIMO=Namespace("http://www.semanticdesktop.org/ontologies/2007/11/01/pimo#")
 NSO=Namespace("http://www.semanticdesktop.org/ontologies/2009/11/08/nso#")
