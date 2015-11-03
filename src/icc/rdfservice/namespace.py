@@ -44,6 +44,24 @@ DDO=Namespace("http://www.semanticdesktop.org/ontologies/2011/10/05/ddo#")
 DUHO=Namespace("http://www.semanticdesktop.org/ontologies/2011/10/05/duho#")
 DRMO=Namespace("http://www.semanticdesktop.org/ontologies/2012/03/06/drmo#")
 
+#User and software description (weak): http://www.daml.org/ontologies/151
+
+# Ontology describes some operational model. That is, OperOnt describes
+# concepts that allow the interoperation of actors at a semantic level
+# without pre-establishing specific protocols.
+
+NAMESPACES={}
+
+vars={}
+keys=list(globals().keys())
+
+for k in keys:
+    v=globals()[k]
+    if v.__class__==Namespace:
+        NAMESPACES[k.lower()]=v
+
+del keys, k, v
+
 """
 N=Namespace("")
 N=Namespace("")

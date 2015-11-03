@@ -29,6 +29,7 @@ class RDFService(object):
 
         config=getUtility(Interface, name='configuration')
 
+
         self.storages={}
         stores_descr=config['rdf_storages']
         for sto in stores_descr['all'].split(','):
@@ -43,6 +44,8 @@ class RDFService(object):
         for g in all_descr.split(','):
             g=g.strip()
             self.init_graph(g)
+
+        print (self.graphs)
 
     def init_storage(self, storage):
         config=getUtility(Interface, name='configuration')
@@ -97,6 +100,9 @@ class RDFService(object):
                 graph.commit()
             except IOError:
                 print ("Cannot load graph from URI:" + load)
+
+        for nk,nv in NAMESPACES.items():
+            graph.bind(nk,nv)
 
         if name=='ns':
             self.ns_man=graph
@@ -182,8 +188,8 @@ class DocMetadataStorage(RDFStorage):
             method=getattr(self, method_name)
             yield from method(v, ths)
         else:
-            print ("\n========================")
-            print ("CNV: ", k, "->", str(v)[:100])
+            #print ("\n========================")
+            #print ("CNV: ", k, "->", str(v)[:100])
             yield (None, None, None)
 
     def _id(self, hash_id, ths):
@@ -191,6 +197,8 @@ class DocMetadataStorage(RDFStorage):
 
         # Anotation target
         target = BNode()
+        yield (anno, RDF.type, OA.Annotation)
+        yield (anno, OA.motivatedBy, OA.describing)
         yield (anno, OA.hasTarget, target)
         yield (target, NAO.identifier, Literal(hash_id))
         yield from self.p("Content-Type", target, NMO.mimeType, ths)
@@ -198,12 +206,13 @@ class DocMetadataStorage(RDFStorage):
             yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
         else:
             yield (target, RDF.type, NFO.Document)
-        yield from self.p("File-Name", target, RDFS.label, ths)
+        yield from self.p("File-Name", target, NFO.fileName, ths)
 
         # Annotation itself
         if 'text-id' in ths:
             body = BNode()
             yield (anno, OA.hasBody, body)
+            yield (body, RDF.type, CNT.ContextAsText)
             yield (body, NAO.identifier, Literal(ths['text-id']))
             if ths['text-body'].upper().find("</BODY") >= 0:
                 yield (body, NMO.mimeType, Literal("text/html"))
@@ -213,10 +222,14 @@ class DocMetadataStorage(RDFStorage):
                 yield (body, RDF.type, NFO.PlainTextDocument)
 
         # User
-        yield (anno, NAO.creator, Literal(ths["user-id"]))
+        user=BNode()
+        yield (anno, OA.annotator, user)
+        yield (user, RDF.type, FOAF.Person)
+        yield (user, NAO.identifier, Literal(ths["user-id"]))
         utcnow=datetime.datetime.utcnow()
-        ts=utcnow.strftime("%Y-%m-%d %H:%M")
-        yield (anno, NAO.created, Literal(ts,datatype=XSD.date))
+        # ts=utcnow.strftime("%Y-%m-%d%Z:%H:%M:%S")
+        ts=utcnow.strftime("%Y-%m-%dT%H:%M:%SZ")
+        yield (anno, OA.annotatedAt, Literal(ts,datatype=XSD.dateTime))
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
@@ -227,27 +240,32 @@ class DocMetadataStorage(RDFStorage):
     def rdf(self, s, ths, filter_out=None):
         """Generate all found rdf relations,
         except mentioned in thw filter_out set."""
-        for key, val in ths.items():
+        keys=list(ths.keys())
+        print ("Keys:", keys)
+        for key in keys:
+            val=ths[key]
+            print ("->>>", key, ":", str(val)[:30])
             ks=key.split(":", maxsplit=1)
             if len(ks)!=2:
+                continue
+            if key in filter_out:
                 continue
             key=ou(key)
             if type(val) in [int, float]:
                 yield (s, key, Literal(val))
-                return
+                continue
             if val.startswith('"') and val.endswith('"'):
                 val=val.strip('"')
                 yield (s, key, Literal(val))
-                return
+                continue
             if val.startswith("'") and val.endswith("'"):
                 val=val.strip("'")
                 yield (s, key, Literal(val))
-                return
+                continue
             vs=val.split(":", maxsplit=1)
-            if len(val)!=2:
-                print ("Strange object value: ", val, "for property:", key)
-                yield (None, None, None)
-                break
+            if len(vs)!=2:
+                print ("Strange object value:", val, "for property:", key)
+                continue
             yield (s, key, ou(val))
 
 
