@@ -45,8 +45,6 @@ class RDFService(object):
             g=g.strip()
             self.init_graph(g)
 
-        print (self.graphs)
-
     def init_storage(self, storage):
         config=getUtility(Interface, name='configuration')
         storage_descr=config['rdf_storage_'+storage]
@@ -119,9 +117,6 @@ class RDFService(object):
             g=self.graphs[gk]
             g.commit()
             g.close(True)
-
-
-
 
 @implementer(IRDFStorage)
 class RDFStorage(object):
