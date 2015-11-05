@@ -118,6 +118,10 @@ class RDFService(object):
             g.commit()
             g.close(True)
 
+class ReadOnlyRDFService(RDFService):
+    pass
+
+
 @implementer(IRDFStorage)
 class RDFStorage(object):
     graph_name=None
