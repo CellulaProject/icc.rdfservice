@@ -1,10 +1,9 @@
 """ Cornice services.
 """
 from cornice.resource import add_resource
-from zope.component import getUtility
-
-
-
+from zope.component import queryUtility
+from icc.rdfservice.interfaces import IGraph
+from pyramid.response import Response
 
 class Triples(object):
     """
@@ -14,7 +13,24 @@ class Triples(object):
         """
         """
         self.request=request
-        self.graph=getUtility('graph')
+        self.name=self.request.matchdict['name']
+        self.graph=queryUtility(IGraph, self.name)
+
+    def get(self):
+        g=self.graph
+        if g == None:
+            self.request.response.status_code=404
+            return Response("{'error':'no such graph'}")
+        Q="""
+        SELECT DISTINCT ?id
+        WHERE {
+         ?ann a oa:Annotation .
+         ?ann oa:hasBody ?body .
+         ?body nao:identifier ?id .
+        }
+        """
+        qres=g.query(Q)
+        return Response(body='\n'.join([r[0].toPython() for r in qres]), content_type="text/plain")
 
     def collection_post(self):
         """Append new document to the storage"""
@@ -29,8 +45,8 @@ class Triples(object):
 
 graph_resource = add_resource(
     Triples,
-    path='/graph/{id}',
-    collection_path='/graph',
+    path='/api-fields/{name}',
+    collection_path='/api-fields',
 )
 
 def includeme(config):
