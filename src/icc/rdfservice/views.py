@@ -1,8 +1,9 @@
 """ Cornice services.
 """
 from cornice.resource import add_resource
-from zope.component import queryUtility
+from zope.component import queryUtility, getUtility
 from icc.rdfservice.interfaces import IGraph
+from icc.contentstorage.interfaces import IContentStorage
 from pyramid.response import Response
 
 class Triples(object):
@@ -13,11 +14,10 @@ class Triples(object):
         """
         """
         self.request=request
-        self.name=self.request.matchdict['name']
-        self.graph=queryUtility(IGraph, self.name)
 
     def get(self):
-        g=self.graph
+        self.name=self.request.matchdict['name']
+        g=queryUtility(IGraph, self.name)
         if g == None:
             self.request.response.status_code=404
             return Response("{'error':'no such graph'}")
@@ -30,7 +30,15 @@ class Triples(object):
         }
         """
         qres=g.query(Q)
-        return Response(body='\n'.join([r[0].toPython() for r in qres]), content_type="text/plain")
+        return Response(body='\n'.join(list(self._serve_get(qres)))+"\n", content_type="text/plain")
+
+    def _serve_get(self, res):
+        storage=getUtility(IContentStorage, name="content")
+        for r in res:
+            key=r[0].toPython()
+            print (key)
+            print (type(storage.get(key)))
+            yield key     # sent as hex digest, received as bytes, must be decoded to utf-8 THERE
 
     def collection_post(self):
         """Append new document to the storage"""
