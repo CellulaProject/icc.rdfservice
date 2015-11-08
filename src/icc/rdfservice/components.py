@@ -7,6 +7,8 @@ from icc.rdfservice.namespace import *
 from rdflib import Literal, BNode, URIRef
 import datetime
 from collections import OrderedDict
+import logging
+logger=logging.getLogger('icc.cellula')
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -97,7 +99,7 @@ class RDFService(object):
                 graph.parse(load) # FIXME slashes in Windows
                 graph.commit()
             except IOError:
-                print ("Cannot load graph from URI:" + load)
+                logger.warning ("Cannot load graph from URI:" + load)
 
         for nk,nv in NAMESPACES.items():
             graph.bind(nk,nv)
@@ -110,7 +112,7 @@ class RDFService(object):
         GSM.registerUtility(graph, IGraph, name=name)
 
     def __del__(self):
-        print ("Terminating graph storage ....")
+        logger.info ("Terminating graph storage ....")
         graphs=self.graphs.keys()
         graphs.reverse()
         for gk in graphs:
@@ -187,8 +189,8 @@ class DocMetadataStorage(RDFStorage):
             method=getattr(self, method_name)
             yield from method(v, ths)
         else:
-            #print ("\n========================")
-            #print ("CNV: ", k, "->", str(v)[:100])
+            logger.debug ("\n========================")
+            logger.debug ("CNV: ", k, "->", str(v)[:100])
             yield (None, None, None)
 
     def _id(self, hash_id, ths):
@@ -240,10 +242,10 @@ class DocMetadataStorage(RDFStorage):
         """Generate all found rdf relations,
         except mentioned in thw filter_out set."""
         keys=list(ths.keys())
-        print ("Keys:", keys)
+        # logger.debug ("Keys: " + repr(keys))
         for key in keys:
             val=ths[key]
-            print ("->>>", key, ":", str(val)[:30])
+            logger.debug ("->>> " + key + " : " + str(val)[:30])
             ks=key.split(":", maxsplit=1)
             if len(ks)!=2:
                 continue
@@ -263,7 +265,7 @@ class DocMetadataStorage(RDFStorage):
                 continue
             vs=val.split(":", maxsplit=1)
             if len(vs)!=2:
-                print ("Strange object value:", val, "for property:", key)
+                logger.warning ("Strange object value: " + val + " for property: " + key)
                 continue
             yield (s, key, ou(val))
 
@@ -281,7 +283,15 @@ def ou(lit):
     """Converts string xxx:yyy to global
     space object XXX.yyy"""
 
-    ns, ent = lit.split(":")
+    #print ("Got lit: " + str(lit))
+    if lit.find(',')>=0:
+        return None
+    if lit.find(' ')>=0:
+        return None
+    rc=lit.split(":")
+    if len(rc)>2:
+        return None
+    ns, ent = rc
     try:
         ns=globals()[ns.upper()]
     except KeyError:
