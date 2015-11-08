@@ -3,12 +3,13 @@ from icc.rdfservice.interfaces import IGraph, ITripleStore, IRDFService, IRDFSto
 from zope.component import getUtility, getGlobalSiteManager # , classImplements
 import rdflib, rdflib.graph
 import os, os.path
-from icc.rdfservice.namespace import *
 from rdflib import Literal, BNode, URIRef
 import datetime
 from collections import OrderedDict
 import logging
 logger=logging.getLogger('icc.cellula')
+
+from icc.rdfservice.namespace import *
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -141,11 +142,16 @@ class RDFStorage(object):
 
         g=self.graph
         for k,v in things.items():
-            for s,p,o in self.convert(k,v, things):
+            for triple in self.convert(k,v, things):
+                s,p,o=triple[:3]
+                rest=triple[3:]
                 if None in [s,p,o]:
                     continue
                 else:
-                    g.add((s,p,o))
+                    try:
+                        g.add((s,p,o))
+                    except AssertionError as e:
+                        logger.error('Assertion %s for triple %s came from: %s.' % (e, (s,p,o), rest))
 
         g.commit()
 
@@ -190,53 +196,65 @@ class DocMetadataStorage(RDFStorage):
             yield from method(v, ths)
         else:
             logger.debug ("\n========================")
-            logger.debug ("CNV: ", k, "->", str(v)[:100])
-            yield (None, None, None)
+            logger.debug ("CNV: " + str(k) + " -> " + str(v)[:100])
+            yield (None, None, None, str(k), str(v)[:100])
 
     def _id(self, hash_id, ths):
         anno = BNode()
 
         # Anotation target
         target = BNode()
-        yield (anno, RDF.type, OA.Annotation)
-        yield (anno, OA.motivatedBy, OA.describing)
-        yield (anno, OA.hasTarget, target)
-        yield (target, NAO.identifier, Literal(hash_id))
-        yield from self.p("Content-Type", target, NMO.mimeType, ths)
+        yield (anno, RDF['type'], OA['Annotation'])
+        yield (anno, OA['motivatedBy'], OA['describing'])
+        yield (anno, OA['hasTarget'], target)
+        yield (target, NAO['identifier'], Literal(hash_id))
+        yield from self.p("Content-Type", target, NMO['mimeType'], ths)
         if "rdf:type" in ths:
             yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
         else:
-            yield (target, RDF.type, NFO.Document)
-        yield from self.p("File-Name", target, NFO.fileName, ths)
+            yield (target, RDF['type'], NFO['Document'])
+        yield from self.p("File-Name", target, NFO['fileName'], ths)
 
         # Annotation itself
         if 'text-id' in ths:
             body = BNode()
-            yield (anno, OA.hasBody, body)
-            yield (body, RDF.type, CNT.ContextAsText)
-            yield (body, NAO.identifier, Literal(ths['text-id']))
-            if ths['text-body'].upper().find("</BODY") >= 0:
-                yield (body, NMO.mimeType, Literal("text/html"))
-                yield (body, RDF.type, NFO.HtmlDocument)
-            else:
-                yield (body, NMO.mimeType, Literal("text/plain"))
-                yield (body, RDF.type, NFO.PlainTextDocument)
+            yield (anno, OA['hasBody'], body)
+            yield (body, RDF['type'], CNT['ContextAsText'])
+            yield (body, NAO['identifier'], Literal(ths['text-id']))
+            mt=None
+            html=plain=False
+            rdf_a=NFO.HtmlDocument
+            #recoll-meta
+            if "text|mimetype" in ths:
+                mt=ths['text|mimetype']
+            else: # let's guess. FIXME CPU consuming and very stupid.
+                if ths['text-body'].upper().find("</BODY") >= 0:
+                    mt="text/html"
+                else:
+                    mt="text/plain"
+            html=mt.endswith("html")
+            plain=mt.endswith("plain")
+            if html:
+                yield (body, RDF['type'], NFO['HtmlDocument'])
+            if plain:
+                yield (body, RDF['type'], NFO['PlainTextDocument'])
+            yield (body, NMO['mimeType'], Literal(mt))
 
         # User
         user=BNode()
-        yield (anno, OA.annotator, user)
-        yield (user, RDF.type, FOAF.Person)
-        yield (user, NAO.identifier, Literal(ths["user-id"]))
+        yield (anno, OA['annotator'], user)
+        yield (user, RDF['type'], FOAF['Person'])
+        yield (user, NAO['identifier'], Literal(ths["user-id"]))
         utcnow=datetime.datetime.utcnow()
         # ts=utcnow.strftime("%Y-%m-%d%Z:%H:%M:%S")
         ts=utcnow.strftime("%Y-%m-%dT%H:%M:%SZ")
-        yield (anno, OA.annotatedAt, Literal(ts,datatype=XSD.dateTime))
+        yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
-            yield (s, o, cls(ths[key]))
+            yield (s, o, cls(ths[key]), key)
         else:
-            yield (None, None, None)
+            yield (None, None, None, key)
 
     def rdf(self, s, ths, filter_out=None):
         """Generate all found rdf relations,
@@ -244,7 +262,9 @@ class DocMetadataStorage(RDFStorage):
         keys=list(ths.keys())
         # logger.debug ("Keys: " + repr(keys))
         for key in keys:
+            okey=key
             val=ths[key]
+            oval=val
             logger.debug ("->>> " + key + " : " + str(val)[:30])
             ks=key.split(":", maxsplit=1)
             if len(ks)!=2:
@@ -253,21 +273,21 @@ class DocMetadataStorage(RDFStorage):
                 continue
             key=ou(key)
             if type(val) in [int, float]:
-                yield (s, key, Literal(val))
+                yield (s, key, Literal(val), okey, str(oval)[:100])
                 continue
             if val.startswith('"') and val.endswith('"'):
                 val=val.strip('"')
-                yield (s, key, Literal(val))
+                yield (s, key, Literal(val), okey, str(oval)[:100])
                 continue
             if val.startswith("'") and val.endswith("'"):
                 val=val.strip("'")
-                yield (s, key, Literal(val))
+                yield (s, key, Literal(val), okey, str(oval)[:100])
                 continue
             vs=val.split(":", maxsplit=1)
             if len(vs)!=2:
-                logger.warning ("Strange object value: " + val + " for property: " + key)
+                logger.warning ("Strange object value: " + str(val) + " for property: " + str(key))
                 continue
-            yield (s, key, ou(val))
+            yield (s, key, ou(val), okey, str(oval)[:100])
 
 
 class OrgStorage(RDFStorage):
@@ -293,12 +313,11 @@ def ou(lit):
         return None
     ns, ent = rc
     try:
-        ns=globals()[ns.upper()]
+        ns=NAMESPACES[ns]
     except KeyError:
         return None
-
     try:
-        rc=getattr(ns, ent)
-    except AttributeError:
+        rc=ns[ent]
+    except Exception:
         rc=None
     return rc

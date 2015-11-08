@@ -4,7 +4,8 @@ from rdflib.namespace import DC, DCTERMS, DOAP, FOAF, OWL, RDF, RDFS, SKOS, VOID
 
 OA=Namespace("http://www.w3.org/ns/oa#")          # The Open Annotation ontology
 CNT=Namespace("http://www.w3.org/2011/content#")   # Representing Content in RDF
-#DC=Namespace("http://purl.org/dc/elements/1.1/") # Dublin Core Elements
+#!!!! Strange behaviour like DC in rdflib is not a Namespace.
+DC=Namespace("http://purl.org/dc/elements/1.1/") # Dublin Core Elements
 #DCTERMS=Namespace("http://purl.org/dc/terms/")	 # Dublin Core Terms
 DCTYPES=Namespace("http://purl.org/dc/dcmitype/") # Dublin Core Type Vocabulary
 #FOAF=Namespace("http://xmlns.com/foaf/0.1/")	 # Friend-of-a-Friend Vocabulary
@@ -59,6 +60,8 @@ for k in keys:
     v=globals()[k]
     if v.__class__==Namespace:
         NAMESPACES[k.lower()]=v
+
+NAMESPACES['dc']=DC
 
 del keys, k, v
 

@@ -5,6 +5,8 @@ from zope.component import queryUtility, getUtility
 from icc.rdfservice.interfaces import IGraph
 from icc.contentstorage.interfaces import IContentStorage
 from pyramid.response import Response
+import logging
+logger=logging.getLogger('icc.cellula')
 
 class Triples(object):
     """
