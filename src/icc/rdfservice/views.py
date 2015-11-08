@@ -39,7 +39,7 @@ class Triples(object):
         for r in res:
             key=r[0].toPython()
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug ("Input key: %d" % key + " and its conten is of type %s." % type(storage.get(key)))
+                logger.debug ("Input key: %s" % key + " and its conten is of type %s." % type(storage.get(key)))
             yield key     # sent as hex digest, received as bytes, must be decoded to utf-8 THERE
 
     def collection_post(self):
