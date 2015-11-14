@@ -7,9 +7,12 @@ from rdflib import Literal, BNode, URIRef
 import datetime
 from collections import OrderedDict
 import logging
+from icc.rdfservice.namespace import *
+import pengines
+import random
+
 logger=logging.getLogger('icc.cellula')
 
-from icc.rdfservice.namespace import *
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -124,23 +127,16 @@ class RDFService(object):
 class ReadOnlyRDFService(RDFService):
     pass
 
-
 @implementer(IRDFStorage)
 class RDFStorage(object):
     graph_name=None
-
-    @property
-    def graph(self):
-        """Return graph named graph_name.
-        """
-        return getUtility(IGraph, name=self.graph_name)
 
     def store(self, things):
         """Store things represented as mapping in the
         graph as triples.
         """
 
-        g=self.graph
+        g=self.getUtility(IGraph, name=self.graph_name)
         for k,v in things.items():
             for triple in self.convert(k,v, things):
                 s,p,o=triple[:3]
@@ -177,7 +173,67 @@ class RDFStorage(object):
         """
         raise RuntimeError ("implemented by subclass.")
 
-class DocMetadataStorage(RDFStorage):
+@implementer(IRDFStorage)
+class ClioPatria(RDFStorage):
+    graph_name = 'document'
+
+    def __init__(self):
+        self.config=getUtility(Interface, 'configuration')['pengines']
+        self.url=self.config['URL']
+
+    def store(self, things):
+        """Store things represented as mapping in the
+        graph as triples.
+        """
+
+        def _(s):
+            return "'{}'".format(str(s))
+
+        g=self.graph_name
+        PengQ=[]
+        for k,v in things.items():
+            for triple in self.convert(k,v, things):
+                s,p,o=triple[:3]
+                rest=triple[3:]
+                if None in [s,p,o]:
+                    continue
+                else:
+                    ps=_(s)
+                    pp=_(p)
+                    if type(o)==Literal:
+                        lang=o._language
+                        # xor
+                        datat=o._datatype    #uriref
+                        val=o._value
+                        if lang != None:
+                            lang=_(lang)
+                        if datat != None:
+                            dt=_(datat)
+                        if lang == None and datat==None:
+                            po="literal({})".format(_(o))
+                        elif lang != None:
+                            po="lang({},{})".format(lang,_(o))
+                        elif type(val) in [int,float]: # datat!=None
+                            po="type({},{})".format(dt, val)
+                        else:
+                            po="type({},'{}')".format(dt, val)
+                    else:
+                        po=_(o)
+                    Q="icc:assert({},{},{},document)".format(ps,pp,po)
+                    PengQ.append(Q)
+        if len(PengQ)==0:
+            return
+        PengQ.append('icc:flush')
+        peng=pengines.Pengine(url=self.url)
+        pid=str(random.randint(1,2015**2))
+        src_text="p{}:-icc:create_graph(document),\n{}.".format(pid,',\t\n'.join(PengQ))
+        #print ("--------->", src_text)
+        rc=peng.create(src_text=src_text,
+                    ask='p{}'.format(pid))
+        #peng.destroy()
+        #print ("--------->",rc)
+
+class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
     graph_name='doc'
     KEYS={
         "id":"_id"
@@ -241,14 +297,14 @@ class DocMetadataStorage(RDFStorage):
             yield (body, NMO['mimeType'], Literal(mt))
 
         # User
-        user=BNode()
+        user=BNode() # FIXME Take it from user database!!!
         yield (anno, OA['annotator'], user)
         yield (user, RDF['type'], FOAF['Person'])
         yield (user, NAO['identifier'], Literal(ths["user-id"]))
         utcnow=datetime.datetime.utcnow()
         # ts=utcnow.strftime("%Y-%m-%d%Z:%H:%M:%S")
         ts=utcnow.strftime("%Y-%m-%dT%H:%M:%SZ")
-        yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
+        #####yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
@@ -288,14 +344,6 @@ class DocMetadataStorage(RDFStorage):
                 logger.warning ("Strange object value: " + str(val) + " for property: " + str(key))
                 continue
             yield (s, key, ou(val), okey, str(oval)[:100])
-
-
-class OrgStorage(RDFStorage):
-    graph_name='org'
-
-    def name(self, ):
-                   """
-                   """
 
 
 
