@@ -210,13 +210,14 @@ class ClioPatria(RDFStorage):
                         if datat != None:
                             dt=_(datat)
                         if lang == None and datat==None:
-                            po="literal({})".format(_(o))
+                            po=_(o)
                         elif lang != None:
                             po="lang({},{})".format(lang,_(o))
                         elif type(val) in [int,float]: # datat!=None
                             po="type({},{})".format(dt, val)
                         else:
                             po="type({},'{}')".format(dt, val)
+                        po="literal({})".format(po)
                     else:
                         po=_(o)
                     Q="icc:assert({},{},{},document)".format(ps,pp,po)
@@ -225,23 +226,26 @@ class ClioPatria(RDFStorage):
             return
         PengQ.append('icc:flush')
         pid=str(random.randint(1,2015**2))
-        src_text="p{}:-icc:create_graph(document),\n{}.".format(pid,',\t\n'.join(PengQ))
-        self.query(src_text=src_text, query="p{}".format(pid))
+        src_text="p{}:-\n{}.".format(pid,',\t\n'.join(PengQ))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("META SOURCE:"+src_text)
+        for _ in self.query(src_text=src_text, query="p{}".format(pid)):
+            return True
+        return False
 
-    def query(self, src_text='', query=None):
+    def query(self, query=None, **kwargs):
         if not query:
             raise ValueError('empty query')
         peng=pengines.Pengine(url=self.url)
-        rc=peng.create(src_text=src_text)
+        rc=peng.create(**kwargs)
+        print ("Query:", query)
         yield from peng.query(query=query)
 
     def current_user(self):
         """Return ID of current user."""
-        Id="eugeneai@npir.ru"
-        for _ in self.query(query="icc:person(exists,'{0}'),icc:entity('{0}',E,_)".format(Id)):
+        Id="mailto:eugeneai@npir.ru"
+        for _ in self.query(query="icc:person('{0}',E,ensure_exists)".format(Id)):
             return (Id, _['E'])
-        for _ in self.query(query="icc:person(create,'{}')".format(Id)):
-            return self.current_user()
         raise RuntimeError('cannot instantiate current person')
 
 class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
@@ -307,6 +311,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
                 yield (body, RDF['type'], NFO['PlainTextDocument'])
             yield (body, NMO['mimeType'], Literal(mt))
 
+
         # User
         (user_id, user)=self.current_user()
         user=BNode(user)
@@ -316,7 +321,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
         utcnow=datetime.datetime.utcnow()
         # ts=utcnow.strftime("%Y-%m-%d%Z:%H:%M:%S")
         ts=utcnow.strftime("%Y-%m-%dT%H:%M:%SZ")
-        #####yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
+        yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
