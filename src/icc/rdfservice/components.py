@@ -224,14 +224,25 @@ class ClioPatria(RDFStorage):
         if len(PengQ)==0:
             return
         PengQ.append('icc:flush')
-        peng=pengines.Pengine(url=self.url)
         pid=str(random.randint(1,2015**2))
         src_text="p{}:-icc:create_graph(document),\n{}.".format(pid,',\t\n'.join(PengQ))
-        #print ("--------->", src_text)
-        rc=peng.create(src_text=src_text,
-                    ask='p{}'.format(pid))
-        #peng.destroy()
-        #print ("--------->",rc)
+        self.query(src_text=src_text, query="p{}".format(pid))
+
+    def query(self, src_text='', query=None):
+        if not query:
+            raise ValueError('empty query')
+        peng=pengines.Pengine(url=self.url)
+        rc=peng.create(src_text=src_text)
+        yield from peng.query(query=query)
+
+    def current_user(self):
+        """Return ID of current user."""
+        Id="eugeneai@npir.ru"
+        for _ in self.query(query="icc:person(exists,'{0}'),icc:entity('{0}',E,_)".format(Id)):
+            return (Id, _['E'])
+        for _ in self.query(query="icc:person(create,'{}')".format(Id)):
+            return self.current_user()
+        raise RuntimeError('cannot instantiate current person')
 
 class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
     graph_name='doc'
@@ -297,10 +308,11 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
             yield (body, NMO['mimeType'], Literal(mt))
 
         # User
-        user=BNode() # FIXME Take it from user database!!!
+        (user_id, user)=self.current_user()
+        user=BNode(user)
         yield (anno, OA['annotator'], user)
-        yield (user, RDF['type'], FOAF['Person'])
-        yield (user, NAO['identifier'], Literal(ths["user-id"]))
+        #yield (user, RDF['type'], FOAF['Person'])
+        #yield (user, NAO['identifier'], Literal(ths["user-id"]))
         utcnow=datetime.datetime.utcnow()
         # ts=utcnow.strftime("%Y-%m-%d%Z:%H:%M:%S")
         ts=utcnow.strftime("%Y-%m-%dT%H:%M:%SZ")
