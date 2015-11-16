@@ -289,6 +289,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
         # Annotation itself
         if 'text-id' in ths:
             body = BNode()
+            # print ("--------->", hash_id, ths['text-id'], ths['id'])
             yield (anno, OA['hasBody'], body)
             yield (body, RDF['type'], CNT['ContextAsText'])
             yield (body, NAO['identifier'], Literal(ths['text-id']))
