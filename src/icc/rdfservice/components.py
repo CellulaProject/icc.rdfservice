@@ -13,6 +13,8 @@ import random
 
 logger=logging.getLogger('icc.cellula')
 
+DATE_TIME_FORMAT="%Y-%m-%dT%H:%M:%SZ"
+DATE_TIME_FORMAT_IN="%Y-%m-%d %H:%M:%S%z"
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -238,8 +240,62 @@ class ClioPatria(RDFStorage):
             raise ValueError('empty query')
         peng=pengines.Pengine(url=self.url)
         rc=peng.create(**kwargs)
-        print ("Query:", query)
+        # print ("Prolog Query:", query)
         yield from peng.query(query=query)
+
+    def sparql(self, query=None, **kwargs):
+        if not query:
+            raise ValueError('empty query')
+        peng=pengines.Pengine(url=self.url)
+        kw={}
+        kw.update(kwargs)
+        if 'src_text' in kw:
+            del kw['src_text']
+        if 'ask' in kw:
+            del kw['ask']
+        ask="icc:sparql({},'{}',{},Row)".format(
+            repr(query),
+            '127.0.0.1', #self.host,
+            3020         #,        #self.port,
+            #self.graph_name
+        )
+        # print ("Sparql Query:", query)
+        rc=peng.create(**kwargs)
+        for row in peng.query(query=ask):
+            yield self.unpack_responce(row)
+
+    def unpack_responce(self, response):
+        r=response['Row']
+        args=r['args']
+        rc = [self.unpack_arg(a) for a in args]
+        return rc
+
+    def unpack_arg(self, a):
+        if type(a)!=dict:
+            if a=='$null$':
+                return None
+        f=a['functor']
+        args=a['args']
+        if f=='literal':
+            larg=args[0]
+            if type(larg)==dict:
+                f=larg['functor']
+                a0,a1=larg['args']
+                if f=='type':
+                    if a0.endswith("dateTime"):
+                        a2,tz=a1[:-6],a1[-6:]
+                        tz=tz.replace(':','')
+                        a1=a2+tz
+                        return datetime.datetime.strptime(a1, DATE_TIME_FORMAT_IN)
+                    elif a0.endswith("integer"):
+                        return int(a1)
+                    elif a0.endswith("float"):
+                        return float(a1)
+                    return a1
+                elif f=='lang':
+                    return a1 # FIXME loosing language tag
+            return larg
+        return args[0] # FIXME control rdf symbols
 
     def current_user(self):
         """Return ID of current user."""
@@ -321,7 +377,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
         #yield (user, NAO['identifier'], Literal(ths["user-id"]))
         utcnow=datetime.datetime.utcnow()
         # ts=utcnow.strftime("%Y-%m-%d%Z:%H:%M:%S")
-        ts=utcnow.strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts=utcnow.strftime(DATE_TIME_FORMAT)
         yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
 
     def p(self, key, s, o, ths, cls=Literal):
