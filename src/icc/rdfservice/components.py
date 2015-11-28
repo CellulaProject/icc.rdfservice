@@ -372,7 +372,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
         # User
         (user_id, user)=self.current_user()
         user=BNode(user)
-        yield (anno, OA['annotator'], user)
+        yield (anno, OA['annotatedBy'], user)
         #yield (user, RDF['type'], FOAF['Person'])
         #yield (user, NAO['identifier'], Literal(ths["user-id"]))
         utcnow=datetime.datetime.utcnow()
