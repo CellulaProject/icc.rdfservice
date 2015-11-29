@@ -334,7 +334,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
         yield (anno, RDF['type'], OA['Annotation'])
         yield (anno, OA['motivatedBy'], OA['describing'])
         yield (anno, OA['hasTarget'], target)
-        yield (target, NAO['identifier'], Literal(hash_id))
+        yield (target, NIE['identifier'], Literal(hash_id))
         yield from self.p("Content-Type", target, NMO['mimeType'], ths)
         if "rdf:type" in ths:
             yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
@@ -348,7 +348,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
             # print ("--------->", hash_id, ths['text-id'], ths['id'])
             yield (anno, OA['hasBody'], body)
             yield (body, RDF['type'], CNT['ContextAsText'])
-            yield (body, NAO['identifier'], Literal(ths['text-id']))
+            yield (body, NIE['identifier'], Literal(ths['text-id']))
             mt=None
             html=plain=False
             rdf_a=NFO.HtmlDocument
