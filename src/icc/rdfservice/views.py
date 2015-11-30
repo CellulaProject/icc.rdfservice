@@ -28,7 +28,7 @@ class Triples(object):
         WHERE {
          ?ann a oa:Annotation .
          ?ann oa:hasBody ?body .
-         ?body nao:identifier ?id .
+         ?body nie:identifier ?id .
         }
         """
         qres=g.sparql(Q)
