@@ -268,6 +268,8 @@ class ClioPatria(RDFStorage):
         r=response['Row']
         args=r['args']
         rc = [self.unpack_arg(a) for a in args]
+        # if len(rc)==1:
+        #     rc=rc[0]  # FIXME! Is it a cultural behaviour - unbrace singular entity?
         return rc
 
     def unpack_arg(self, a):
