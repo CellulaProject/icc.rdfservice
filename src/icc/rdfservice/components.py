@@ -373,7 +373,6 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
 
         # Anotation target
 
-        import pudb; pu.db
         if not targetExists:
             yield from provide_annotation(anno)
             yield (anno, OA['hasTarget'], target)
