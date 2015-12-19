@@ -263,7 +263,7 @@ class ClioPatria(RDFStorage):
             #self.graph_name
         )
         # print ("Sparql Query:", query)
-        rc=peng.create(**kwargs)
+        rc=peng.create(**kw)
         for row in peng.query(query=ask):
             yield self.unpack_responce(row)
 
