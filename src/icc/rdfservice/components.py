@@ -401,8 +401,9 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
         import pudb; pu.db
         targetExists=False
         bodyExists=False
+        anno=None
 
-        for target, anno in self.annotation(hash_id):
+        for anno, target in self.annotation(hash_id):
             targetExists=True
             break
         else:
@@ -433,17 +434,17 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
             if bodyExists:
                 return
         if ann1==None:
-            ann1=BNode()
-            yield from provide_annotation(ann1, target)
+            if anno != None:
+                ann1=anno
+            else:
+                ann1=BNode()
+                yield from provide_annotation(ann1, target)
             yield from provide_body(ann1, None, ths)
             return
-        if body==None:
-            yield from provide_body(ann1, body, ths)
-        yield (ann1, OA['hasTarget'], target)
+        else:
+            yield (ann1, OA['hasTarget'], target)
+            return
 
-
-
-        # Annotation itself
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
