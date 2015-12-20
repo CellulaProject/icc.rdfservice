@@ -229,8 +229,6 @@ class ClioPatria(RDFStorage):
         if len(PengQ)==0:
             return
 
-
-        import pudb; pu.db
         PengQ.append('icc:flush')
         pid=str(random.randint(1,2015**2))
         src_text="p{}:-\n{}.".format(pid,',\t\n'.join(PengQ))
@@ -374,7 +372,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
                 return
             if body == None:
                 body=BNode()
-
+            body_id=ths['text-id']
             yield (anno, OA['hasBody'], body)
             # yield (body, RDF['type'], CNT['ContextAsText'])
             yield (body, NIE['identifier'], Literal(body_id))
@@ -397,8 +395,6 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
                 yield (body, RDF['type'], NFO['PlainTextDocument'])
             yield (body, NMO['mimeType'], Literal(mt))
 
-
-        import pudb; pu.db
         targetExists=False
         bodyExists=False
         anno=None
