@@ -229,6 +229,8 @@ class ClioPatria(RDFStorage):
         if len(PengQ)==0:
             return
 
+
+        import pudb; pu.db
         PengQ.append('icc:flush')
         pid=str(random.randint(1,2015**2))
         src_text="p{}:-\n{}.".format(pid,',\t\n'.join(PengQ))
@@ -244,7 +246,7 @@ class ClioPatria(RDFStorage):
         peng=pengines.Pengine(url=self.url)
         rc=peng.create(**kwargs)
         # print ("Prolog Query:", query)
-        yield from peng.query(query=query)
+        yield from peng.query(query=query, **kwargs)
 
     def sparql(self, query=None, **kwargs):
         if not query:
@@ -311,17 +313,23 @@ class ClioPatria(RDFStorage):
 
     def annotation(self, doc_id):
         """Return Annotation BNode if any in the document database """
-        yield from self.query(query="icc:annotation_query(target,'{0}', Ann, Target)".format(doc_id))
+        yield from self.query(query="icc:annotation_query(target,'{0}', Ann, Target)".format(doc_id),
+                              template="[Ann,Target]")
 
     def body(self, target_id=None, body_id=None):
         """Return Annotation BNode if any in the document database """
+        t="[Ann,Body]"
         if target_id and body_id:
-            yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, '{1}')".format(target_id, body_id))
+            yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, '{1}')".format(target_id, body_id),
+                                  template=t)
             return
         if target_id:
-            yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, Id)".format(target_id))
+            yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, Id)".format(target_id),
+                                  template='[Ann,Body,Id]')
             return
-        yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body)".format(body_id))
+        yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body)".format(body_id),
+                              template=t)
+
 
 class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
     graph_name='doc'
@@ -347,60 +355,27 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
 
     def _id(self, hash_id, ths):
 
-        def provide_annotation(anno):
+        def provide_annotation(anno, target):
             yield (anno, RDF['type'], OA['Annotation'])
             yield (anno, OA['motivatedBy'], OA['describing'])
             yield from provide_user(anno)
             utcnow=datetime.datetime.utcnow()
             ts=utcnow.strftime(DATE_TIME_FORMAT)
             yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
+            yield (anno, OA['hasTarget'], target)
 
         def provide_user(anno):
             (user_id, user)=self.current_user()
             user=BNode(user)
             yield (anno, OA['annotatedBy'], user)
 
+        def provide_body(anno, body, ths):
+            if not 'text-id' in ths: # FIXME No annotation body!
+                return
+            if body == None:
+                body=BNode()
 
-        targetExists=False
-        bodyExists=False
-
-        for target, anno in self.annotation(hash_id):
-            targetExists=True
-            break
-        else:
-            target = BNode()
-            anno = BNode()
-
-        # Anotation target
-
-        if not targetExists:
-            yield from provide_annotation(anno)
-            yield (anno, OA['hasTarget'], target)
-            yield (target, NIE['identifier'], Literal(hash_id))
-            yield from self.p("Content-Type", target, NMO['mimeType'], ths)
-            if "rdf:type" in ths:
-                yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
-            else:
-                yield (target, RDF['type'], NFO['Document'])
-            yield from self.p("File-Name", target, NFO['fileName'], ths)
-
-        # Annotation itself
-        if 'text-id' in ths:
-            body_id=ths['text-id']
-            for ann1, body in self.body(body_id=body_id):
-                bodyExists = ann1==anno
-                if bodyExists:
-                    return
-            else:
-                body = BNode()
-                if targetExists:
-                    ann1 = BNode()
-                    yield from provide_annotation(ann1)
-                else:
-                    ann1 = anno
-            # print ("--------->", hash_id, ths['text-id'], ths['id'])
-
-            yield (ann1, OA['hasBody'], body)
+            yield (anno, OA['hasBody'], body)
             # yield (body, RDF['type'], CNT['ContextAsText'])
             yield (body, NIE['identifier'], Literal(body_id))
             mt=None
@@ -421,6 +396,54 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
             if plain:
                 yield (body, RDF['type'], NFO['PlainTextDocument'])
             yield (body, NMO['mimeType'], Literal(mt))
+
+
+        import pudb; pu.db
+        targetExists=False
+        bodyExists=False
+
+        for target, anno in self.annotation(hash_id):
+            targetExists=True
+            break
+        else:
+            target = BNode()
+            anno = BNode()
+
+        if not targetExists:
+            # New annotatio, body and target
+            yield from provide_annotation(anno, target)
+            yield (target, NIE['identifier'], Literal(hash_id))
+            yield from self.p("Content-Type", target, NMO['mimeType'], ths)
+            if "rdf:type" in ths:
+                yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
+            else:
+                yield (target, RDF['type'], NFO['Document'])
+            yield from self.p("File-Name", target, NFO['fileName'], ths)
+            yield from provide_body(anno, None, ths)
+            return
+
+        if not 'text-id' in ths: # FIXME No annotation body!
+            return
+
+        body_id=ths['text-id']
+        ann1=None
+        body=None
+        for ann1, body in self.body(body_id=body_id):
+            bodyExists = ann1==anno
+            if bodyExists:
+                return
+        if ann1==None:
+            ann1=BNode()
+            yield from provide_annotation(ann1, target)
+            yield from provide_body(ann1, None, ths)
+            return
+        if body==None:
+            yield from provide_body(ann1, body, ths)
+        yield (ann1, OA['hasTarget'], target)
+
+
+
+        # Annotation itself
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
