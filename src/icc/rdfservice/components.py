@@ -193,7 +193,8 @@ class ClioPatria(RDFStorage):
 
         g=self.graph_name
         PengQ=[]
-        for k,v in things.items():
+        ithings=list(things.items())
+        for k,v in ithings:
             for triple in self.convert(k,v, things):
                 s,p,o=triple[:3]
                 rest=triple[3:]
