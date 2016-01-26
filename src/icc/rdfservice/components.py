@@ -303,9 +303,12 @@ class ClioPatria(RDFStorage):
             return larg
         return args[0] # FIXME control rdf symbols
 
-    def current_user(self):
+    def current_user(self, ths):
         """Return ID of current user."""
-        Id="mailto:eugeneai@npir.ru"
+        if "user_id" in ths:
+            Id=ths["user_id"]
+        else:
+            Id="mailto:eugeneai@npir.ru"
         for _ in self.query(query="icc:person('{0}',E,ensure_exists)".format(Id)):
             return (Id, _['E'])
         raise RuntimeError('cannot instantiate current person')
@@ -364,7 +367,7 @@ class DocMetadataStorage(ClioPatria): # FIXME make adapter, a configurated one.
             yield (anno, OA['hasTarget'], target)
 
         def provide_user(anno):
-            (user_id, user)=self.current_user()
+            (user_id, user)=self.current_user(ths)
             user=BNode(user)
             yield (anno, OA['annotatedBy'], user)
 
