@@ -30,7 +30,7 @@ setup(name='icc.rdfservice',
         'rdflib-kyotocabinet==0.1',
 	'pyramid',
 	'waitress==0.8.11dev0ipv6-1',
-	'cornice==1.2.0.dev0',
+	'cornice',
 	'zope.component [zcml]',
         ],
       dependency_links = [
