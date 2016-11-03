@@ -181,7 +181,16 @@ class ClioPatria(RDFStorage):
 
     def __init__(self):
         self.config=getUtility(Interface, 'configuration')['pengines']
-        self.url=self.config['URL']
+        self.url=self.config.get('URL', None)
+        if self.url is None:
+            self.port=self.config.get("port", "3020")
+            self.host=self.config.get("host", "127.0.0.1")
+            self.proto=self.config.get("proto", "http")
+            self.url="{}://{}:{}".format(self.proto,self.host,self.port)
+        self.sparql_config=getUtility(Interface, 'configuration')['sparql']
+        self.sparql_port=self.sparql_config.get("port", "3030")
+        self.sparql_host=self.sparql_config.get("host", "127.0.0.1")
+        self.sparql_proto=self.sparql_config.get("proto", "http")
 
     def store(self, things):
         """Store things represented as mapping in the
@@ -259,9 +268,9 @@ class ClioPatria(RDFStorage):
             del kw['ask']
         ask="icc:sparql({},'{}',{},Row)".format(
             repr(query),
-            '127.0.0.1', #self.host,
-            3020         #,        #self.port,
-            #self.graph_name
+            self.sparql_host,
+            self.sparql_port
+            #self.graph_name #FIXME Does not work... it seems.
         )
         # print ("Sparql Query:", query)
         rc=peng.create(**kw)
