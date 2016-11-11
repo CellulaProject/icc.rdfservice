@@ -85,8 +85,11 @@ class RDFService(object):
                 identifier=identifier,
                 namespace_manager=self.ns_man
             )
-            if sto_filepath != None:
-                graph.open(sto_filepath,create=True)
+            if sto_filepath is not None:
+                sto_filepath = os.path.abspath(sto_filepath)
+                if not os.path.exists(sto_filepath):
+                    os.makedirs(sto_filepath)
+                graph.open(sto_filepath, create=True)
 
         else:
             if sto_driver != 'default':
