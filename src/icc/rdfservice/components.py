@@ -1,29 +1,33 @@
-from zope.interface import implementer, Interface, Attribute
-from icc.rdfservice.interfaces import IGraph, ITripleStore, IRDFService, IRDFStorage
-from zope.component import getUtility, getGlobalSiteManager  # , classImplements
 import rdflib
 import rdflib.graph
 import os
 import os.path
-from rdflib import Literal, BNode, URIRef
 import datetime
 from collections import OrderedDict
 import logging
-from icc.rdfservice.namespace import *
+from icc.rdfservice.namespace import NFO, RDF, NAMESPACES, OA, NIE, NMO, XSD
+from rdflib import Literal, BNode, URIRef
+from zope.component import getUtility, getSiteManager
+from zope.interfaces import implementer, Interface
+from .interfaces import IRDFService, IRDFStorage
+from .interfaces import IGraph
+
 import pengines
 import random
+
+URIRef
 
 logger = logging.getLogger('icc.cellula')
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 DATE_TIME_FORMAT_IN = "%Y-%m-%d %H:%M:%S%z"
 
-#classImplements(rdflib.graph.Graph, IGraph)
-#classImplements(rdflib.graph.QuotedGraph, IGraph)
+# classImplements(rdflib.graph.Graph, IGraph)
+# classImplements(rdflib.graph.QuotedGraph, IGraph)
 
-#classImplements(rdflib.graph.ConjunctiveGraph, IGraph)
-#classImplements(rdflib.graph.DataSet, IGraph)
-#classImplements(rdflib.graph.ReadOnlyGraphAggregate, IGraph)
+# classImplements(rdflib.graph.ConjunctiveGraph, IGraph)
+# classImplements(rdflib.graph.DataSet, IGraph)
+# classImplements(rdflib.graph.ReadOnlyGraphAggregate, IGraph)
 
 
 @implementer(IRDFService)
@@ -120,7 +124,7 @@ class RDFService(object):
             self.ns_man = graph
 
         self.graphs[name] = graph
-        GSM = getGlobalSiteManager()
+        GSM = getSiteManager()
         GSM.registerUtility(graph, IGraph, name=name)
 
     def __del__(self):
@@ -157,8 +161,9 @@ class RDFStorage(object):
                     try:
                         g.add((s, p, o))
                     except AssertionError as e:
-                        logger.error('Assertion %s for triple %s came from: %s.' % (
-                            e, (s, p, o), rest))
+                        logger.error('Assertion %s for '
+                                     'triple %s came from: %s.' % (
+                                         e, (s, p, o), rest))
 
         g.commit()
 
@@ -210,13 +215,11 @@ class ClioPatria(RDFStorage):
         def _(s):
             return "'{}'".format(str(s))
 
-        g = self.graph_name
         PengQ = []
         ithings = list(things.items())
         for k, v in ithings:
             for triple in self.convert(k, v, things):
                 s, p, o = triple[:3]
-                rest = triple[3:]
                 if None in [s, p, o]:
                     continue
                 else:
@@ -257,31 +260,31 @@ class ClioPatria(RDFStorage):
             return True
         return False
 
-    def document(self, min, max):
-        Q = """
-        SELECT DISTINCT ?date ?title ?id ?file ?mimetype
-        WHERE {
-           ?ann a oa:Annotation .
-           ?ann oa:annotatedAt ?date .
-           ?ann oa:hasTarget ?target .
-        OPTIONAL { ?target nie:title ?title } .
-           ?target nie:identifier ?id .
-           ?target nfo:fileName ?file .
-           ?target nmo:mimeType ?mimetype .
-        FILTER ( ?date>="$min"^^xsd:dateTime && ?date<="$max"^^xsd:dateTime)
-        }
-        """
-        Q = Template(Q).substitute(
-            min=min.strftime(DATE_TIME_FORMAT),
-            max=max.strftime(DATE_TIME_FORMAT))
-        qres = g.sparql(Q)
-        return qres
+    # def document(self, min, max):
+    #     Q = """
+    #     SELECT DISTINCT ?date ?title ?id ?file ?mimetype
+    #     WHERE {
+    #        ?ann a oa:Annotation .
+    #        ?ann oa:annotatedAt ?date .
+    #        ?ann oa:hasTarget ?target .
+    #     OPTIONAL { ?target nie:title ?title } .
+    #        ?target nie:identifier ?id .
+    #        ?target nfo:fileName ?file .
+    #        ?target nmo:mimeType ?mimetype .
+    #     FILTER ( ?date>="$min"^^xsd:dateTime && ?date<="$max"^^xsd:dateTime)
+    #     }
+    #     """
+    #     Q = Template(Q).substitute(
+    #         min=min.strftime(DATE_TIME_FORMAT),
+    #         max=max.strftime(DATE_TIME_FORMAT))
+    #     qres = g.sparql(Q)
+    #     return qres
 
     def query(self, query=None, **kwargs):
         if not query:
             raise ValueError('empty query')
         peng = pengines.Pengine(url=self.url)
-        rc = peng.create(**kwargs)
+        peng.create(**kwargs)
         # print ("Prolog Query:", query)
         yield from peng.query(query=query, **kwargs)
 
@@ -302,7 +305,7 @@ class ClioPatria(RDFStorage):
             # self.graph_name #FIXME Does not work... it seems.
         )
         # print ("Sparql Query:", query)
-        rc = peng.create(**kw)
+        peng.create(**kw)
         for row in peng.query(query=ask):
             yield self.unpack_responce(row)
 
@@ -331,7 +334,8 @@ class ClioPatria(RDFStorage):
                         a2, tz = a1[:-6], a1[-6:]
                         tz = tz.replace(':', '')
                         a1 = a2 + tz
-                        return datetime.datetime.strptime(a1, DATE_TIME_FORMAT_IN)
+                        return datetime.datetime.strptime(a1,
+                                                          DATE_TIME_FORMAT_IN)
                     elif a0.endswith("integer"):
                         return int(a1)
                     elif a0.endswith("float"):
@@ -348,28 +352,38 @@ class ClioPatria(RDFStorage):
             Id = ths["user_id"]
         else:
             Id = "mailto:eugeneai@npir.ru"
-        for _ in self.query(query="icc:person('{0}',E,ensure_exists)".format(Id)):
+        for _ in self.query(query="icc: person('{0}',"
+                            "E, ensure_exists)".format(Id)):
             return (Id, _['E'])
         raise RuntimeError('cannot instantiate current person')
 
     def annotation(self, doc_id):
         """Return Annotation BNode if any in the document database """
-        yield from self.query(query="icc:annotation_query(target,'{0}', Ann, Target)".format(doc_id),
-                              template="[Ann,Target]")
+        yield from self.query(
+            query="icc:annotation_query(target,'{0}', Ann, Target)".format(
+                doc_id),
+            template="[Ann,Target]")
 
     def body(self, target_id=None, body_id=None):
         """Return Annotation BNode if any in the document database """
         t = "[Ann,Body]"
         if target_id and body_id:
-            yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, '{1}')".format(target_id, body_id),
-                                  template=t)
+            yield from self.query(
+                query="icc:annotation_query(body,'{0}',"
+                      " Ann, Body, '{1}')".format(
+                          target_id, body_id),
+                template=t)
             return
         if target_id:
-            yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, Id)".format(target_id),
-                                  template='[Ann,Body,Id]')
+            yield from self.query(
+                query="icc:annotation_query(body,'{0}', Ann, Body, Id)".format(
+                    target_id),
+                template='[Ann,Body,Id]')
             return
-        yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body)".format(body_id),
-                              template=t)
+        yield from self.query(
+            query="icc:annotation_query(body,'{0}', Ann, Body)".format(
+                body_id),
+            template=t)
 
 
 # FIXME make adapter, a configurated one.
@@ -411,9 +425,9 @@ class DocMetadataStorage(ClioPatria):
             yield (anno, OA['annotatedBy'], user)
 
         def provide_body(anno, body, ths):
-            if not 'text-id' in ths:  # FIXME No annotation body!
+            if 'text-id' not in ths:  # FIXME No annotation body!
                 return
-            if body == None:
+            if body is None:
                 body = BNode()
             body_id = ths['text-id']
             yield (anno, OA['hasBody'], body)
@@ -421,7 +435,6 @@ class DocMetadataStorage(ClioPatria):
             yield (body, NIE['identifier'], Literal(body_id))
             mt = None
             html = plain = False
-            rdf_a = NFO.HtmlDocument
             # recoll-meta
             if "text|mimetype" in ths:
                 mt = ths['text|mimetype']
@@ -453,7 +466,8 @@ class DocMetadataStorage(ClioPatria):
             # New annotatio, body and target
             yield from provide_annotation(anno, target)
             yield (target, NIE['identifier'], Literal(hash_id))
-            yield from self.p("Content-Type", target, NMO['mimeType'], ths)
+            yield from self.p(["Content-Type", "mimeType"],
+                              target, NMO['mimeType'], ths)
             if "rdf:type" in ths:
                 yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
             else:
@@ -463,7 +477,7 @@ class DocMetadataStorage(ClioPatria):
             yield from provide_body(anno, None, ths)
             return
 
-        if not 'text-id' in ths:  # FIXME No annotation body!
+        if 'text-id' not in ths:  # FIXME No annotation body!
             return
 
         body_id = ths['text-id']
@@ -485,9 +499,14 @@ class DocMetadataStorage(ClioPatria):
             yield (ann1, OA['hasTarget'], target)
             return
 
-    def p(self, key, s, o, ths, cls=Literal):
-        if key in ths:
+    def p(self, keys, s, o, ths, cls=Literal):
+        """Generate a triple for feature `keys` in `ths` features
+        if any"""
+        if type(keys) not in [tuple, list]:
+            keys = [keys]
+        for key in keys:
             yield (s, o, cls(ths[key]), key)
+            break
         else:
             yield (None, None, None, key)
 
@@ -530,7 +549,7 @@ def ou(lit):
     """Converts string xxx:yyy to global
     space object XXX.yyy"""
 
-    #print ("Got lit: " + str(lit))
+    # print ("Got lit: " + str(lit))
     if lit.find(',') >= 0:
         return None
     if lit.find(' ') >= 0:
