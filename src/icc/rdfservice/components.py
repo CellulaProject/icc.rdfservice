@@ -1,6 +1,6 @@
 from zope.interface import implementer, Interface, Attribute
 from icc.rdfservice.interfaces import IGraph, ITripleStore, IRDFService, IRDFStorage
-from zope.component import getUtility, getGlobalSiteManager  # , classImplements
+from zope.component import getUtility, getGlobalSiteManager # , classImplements
 import rdflib
 import rdflib.graph
 import os
@@ -13,10 +13,10 @@ from icc.rdfservice.namespace import *
 import pengines
 import random
 
-logger = logging.getLogger('icc.cellula')
+logger=logging.getLogger('icc.cellula')
 
-DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-DATE_TIME_FORMAT_IN = "%Y-%m-%d %H:%M:%S%z"
+DATE_TIME_FORMAT="%Y-%m-%dT%H:%M:%SZ"
+DATE_TIME_FORMAT_IN="%Y-%m-%d %H:%M:%S%z"
 
 #classImplements(rdflib.graph.Graph, IGraph)
 #classImplements(rdflib.graph.QuotedGraph, IGraph)
@@ -30,7 +30,6 @@ DATE_TIME_FORMAT_IN = "%Y-%m-%d %H:%M:%S%z"
 class RDFService(object):
     """Creates World of graphs.
     """
-
     def __init__(self):
         self.initialize()
 
@@ -38,51 +37,52 @@ class RDFService(object):
         """Create graphs and load then with intial data
         if necessary."""
 
-        config = getUtility(Interface, name='configuration')
+        config=getUtility(Interface, name='configuration')
 
-        self.storages = {}
-        stores_descr = config['rdf_storages']
+
+        self.storages={}
+        stores_descr=config['rdf_storages']
         for sto in stores_descr['all'].split(','):
-            sto = sto.strip()
+            sto=sto.strip()
             self.init_storage(sto)
 
-        graphs_descr = config['graphs']
-        self.graphs = OrderedDict()
-        self.ns_man = None
+        graphs_descr=config['graphs']
+        self.graphs=OrderedDict()
+        self.ns_man=None
 
-        all_descr = graphs_descr['all']
+        all_descr=graphs_descr['all']
         for g in all_descr.split(','):
-            g = g.strip()
+            g=g.strip()
             self.init_graph(g)
 
     def init_storage(self, storage):
-        config = getUtility(Interface, name='configuration')
-        storage_descr = config['rdf_storage_' + storage]
+        config=getUtility(Interface, name='configuration')
+        storage_descr=config['rdf_storage_'+storage]
 
-        data_dir = storage_descr.get('data_dir', None)
-        data_file = storage_descr.get('data_file', storage)
+        data_dir=storage_descr.get('data_dir', None)
+        data_file=storage_descr.get('data_file', storage)
 
-        driver = storage_descr.get('driver', 'default')
+        driver=storage_descr.get('driver', 'default')
 
         if data_dir is not None:
-            data_filepath = os.path.join(data_dir, data_file)
+            data_filepath=os.path.join(data_dir, data_file)
         else:
-            data_filepath = None
+            data_filepath=None
 
-        self.storages[storage] = (driver, data_filepath)
+        self.storages[storage]=(driver, data_filepath)
 
     def init_graph(self, name):
-        config = getUtility(Interface, name='configuration')
-        graph_descr = config['graph_' + name]
-        contains = graph_descr.get('contains', None)
-        identifier = graph_descr.get('id', name)
-        storage = graph_descr['storage']
-        load = graph_descr.get('load_from', None)
+        config=getUtility(Interface, name='configuration')
+        graph_descr=config['graph_'+name]
+        contains=graph_descr.get('contains', None)
+        identifier=graph_descr.get('id', name)
+        storage=graph_descr['storage']
+        load=graph_descr.get('load_from', None)
 
-        sto_driver, sto_filepath = self.storages[storage]
+        sto_driver, sto_filepath=self.storages[storage]
 
         if contains is None:
-            graph = rdflib.graph.Graph(
+            graph=rdflib.graph.Graph(
                 store=sto_driver,
                 identifier=identifier,
                 namespace_manager=self.ns_man
@@ -98,64 +98,62 @@ class RDFService(object):
                 graph = rdflib.graph.ConjunctiveGraph(
                     sto_driver, identifier=identifier)
                 if sto_filepath is not None:
-                    graph.open(sto_filepath, create=True)
+                    graph.open(sto_filepath,create=True)
             else:
-                graph = rdflib.graph.Dataset(sto_driver)
+                graph=rdflib.graph.Dataset(sto_driver)
                 for cg in contains.split(','):
-                    cg = cg.strip()
-                    g = self.graphs[cg]
+                    cg=cg.strip()
+                    g=self.graphs[cg]
                     graph.add_graph(g)
 
         if len(graph) == 0 and load is not None:
             try:
-                graph.parse(load)  # FIXME slashes in Windows
+                graph.parse(load) # FIXME slashes in Windows
                 graph.commit()
             except IOError:
-                logger.warning("Cannot load graph from URI:" + load)
+                logger.warning ("Cannot load graph from URI:" + load)
 
-        for nk, nv in NAMESPACES.items():
-            graph.bind(nk, nv)
+        for nk,nv in NAMESPACES.items():
+            graph.bind(nk,nv)
 
-        if name == 'ns':
-            self.ns_man = graph
+        if name=='ns':
+            self.ns_man=graph
 
-        self.graphs[name] = graph
-        GSM = getGlobalSiteManager()
+        self.graphs[name]=graph
+        GSM=getGlobalSiteManager()
         GSM.registerUtility(graph, IGraph, name=name)
 
     def __del__(self):
-        logger.info("Terminating graph storage ....")
-        graphs = self.graphs.keys()
+        logger.info ("Terminating graph storage ....")
+        graphs=self.graphs.keys()
         graphs.reverse()
         for gk in graphs:
-            g = self.graphs[gk]
+            g=self.graphs[gk]
             g.commit()
             g.close(True)
-
 
 class ReadOnlyRDFService(RDFService):
     pass
 
-
 @implementer(IRDFStorage)
 class RDFStorage(object):
-    graph_name = None
+    graph_name=None
 
     def store(self, things):
         """Store things represented as mapping in the
         graph as triples.
         """
 
-        g = self.getUtility(IGraph, name=self.graph_name)
-        for k, v in things.items():
-            for triple in self.convert(k, v, things):
-                s, p, o = triple[:3]
-                rest = triple[3:]
-                if None in [s, p, o]:
+        g=self.getUtility(IGraph, name=self.graph_name)
+        for k,v in things.items():
+            for triple in self.convert(k,v, things):
+                s,p,o=triple[:3]
+                rest=triple[3:]
+                if None in [s,p,o]:
                     continue
                 else:
                     try:
-                        g.add((s, p, o))
+                        g.add((s,p,o))
                     except AssertionError as e:
                         logger.error('Assertion %s for triple %s came from: %s.' % (
                             e, (s, p, o), rest))
@@ -168,7 +166,7 @@ class RDFStorage(object):
         """
         if type(values) in [list, tuple]:
             # remove duplicates
-            values = set(values)
+            values=set(values)
             for v in values:
                 yield from self.convert_one(key, v, things)
         else:
@@ -182,25 +180,24 @@ class RDFStorage(object):
         - `value`:
         - `things`:
         """
-        raise RuntimeError("implemented by subclass.")
-
+        raise RuntimeError ("implemented by subclass.")
 
 @implementer(IRDFStorage)
 class ClioPatria(RDFStorage):
     graph_name = 'document'
 
     def __init__(self):
-        self.config = getUtility(Interface, 'configuration')['pengines']
-        self.url = self.config.get('URL', None)
+        self.config=getUtility(Interface, 'configuration')['pengines']
+        self.url=self.config.get('URL', None)
         if self.url is None:
-            self.port = self.config.get("port", "3020")
-            self.host = self.config.get("host", "127.0.0.1")
-            self.proto = self.config.get("proto", "http")
-            self.url = "{}://{}:{}".format(self.proto, self.host, self.port)
-        self.sparql_config = getUtility(Interface, 'configuration')['sparql']
-        self.sparql_port = self.sparql_config.get("port", "3030")
-        self.sparql_host = self.sparql_config.get("host", "127.0.0.1")
-        self.sparql_proto = self.sparql_config.get("proto", "http")
+            self.port=self.config.get("port", "3020")
+            self.host=self.config.get("host", "127.0.0.1")
+            self.proto=self.config.get("proto", "http")
+            self.url="{}://{}:{}".format(self.proto,self.host,self.port)
+        self.sparql_config=getUtility(Interface, 'configuration')['sparql']
+        self.sparql_port=self.sparql_config.get("port", "3030")
+        self.sparql_host=self.sparql_config.get("host", "127.0.0.1")
+        self.sparql_proto=self.sparql_config.get("proto", "http")
 
     def store(self, things):
         """Store things represented as mapping in the
@@ -210,49 +207,50 @@ class ClioPatria(RDFStorage):
         def _(s):
             return "'{}'".format(str(s))
 
-        g = self.graph_name
-        PengQ = []
-        ithings = list(things.items())
-        for k, v in ithings:
-            for triple in self.convert(k, v, things):
-                s, p, o = triple[:3]
-                rest = triple[3:]
-                if None in [s, p, o]:
+        g=self.graph_name
+        PengQ=[]
+        ithings=list(things.items())
+        for k,v in ithings:
+            for triple in self.convert(k,v, things):
+                s,p,o=triple[:3]
+                rest=triple[3:]
+                if None in [s,p,o]:
                     continue
                 else:
-                    ps = _(s)
-                    pp = _(p)
-                    if type(o) == Literal:
-                        lang = o._language
+                    ps=_(s)
+                    pp=_(p)
+                    if type(o)==Literal:
+                        lang=o._language
                         # xor
-                        datat = o._datatype  # uriref
-                        val = o._value
+                        datat=o._datatype    #uriref
+                        val=o._value
                         if lang is not None:
-                            lang = _(lang)
+                            lang=_(lang)
                         if datat is not None:
-                            dt = _(datat)
+                            dt=_(datat)
                         if lang is None and datat is None:
-                            po = _(o)
+                            po=_(o)
                         elif lang is not None:
-                            po = "lang({},{})".format(lang, _(o))
-                        elif type(val) in [int, float]:  # datat!=None
-                            po = "type({},{})".format(dt, val)
+                            po="lang({},{})".format(lang,_(o))
+                        elif type(val) in [int,float]: # datat!=None
+                            po="type({},{})".format(dt, val)
                         else:
-                            po = "type({},'{}')".format(dt, val)
-                        po = "literal({})".format(po)
+                            po="type({},'{}')".format(dt, val)
+                        po="literal({})".format(po)
                     else:
-                        po = _(o)
-                    Q = "icc:assert({},{},{},document)".format(ps, pp, po)
+                        po=_(o)
+                    Q="icc:assert({},{},{},document)".format(ps,pp,po)
                     PengQ.append(Q)
 
-        if len(PengQ) == 0:
+
+        if len(PengQ)==0:
             return
 
         PengQ.append('icc:flush')
-        pid = str(random.randint(1, 2015**2))
-        src_text = "p{}:-\n{}.".format(pid, ',\t\n'.join(PengQ))
+        pid=str(random.randint(1,2015**2))
+        src_text="p{}:-\n{}.".format(pid,',\t\n'.join(PengQ))
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("META SOURCE:" + src_text)
+            logger.debug("META SOURCE:"+src_text)
         for _ in self.query(src_text=src_text, query="p{}".format(pid)):
             return True
         return False
@@ -276,39 +274,38 @@ class ClioPatria(RDFStorage):
             max=max.strftime(DATE_TIME_FORMAT))
         qres = g.sparql(Q)
         return qres
-
     def query(self, query=None, **kwargs):
         if not query:
             raise ValueError('empty query')
-        peng = pengines.Pengine(url=self.url)
-        rc = peng.create(**kwargs)
+        peng=pengines.Pengine(url=self.url)
+        rc=peng.create(**kwargs)
         # print ("Prolog Query:", query)
         yield from peng.query(query=query, **kwargs)
 
     def sparql(self, query=None, **kwargs):
         if not query:
             raise ValueError('empty query')
-        peng = pengines.Pengine(url=self.url)
-        kw = {}
+        peng=pengines.Pengine(url=self.url)
+        kw={}
         kw.update(kwargs)
         if 'src_text' in kw:
             del kw['src_text']
         if 'ask' in kw:
             del kw['ask']
-        ask = "icc:sparql({},'{}',{},Row)".format(
+        ask="icc:sparql({},'{}',{},Row)".format(
             repr(query),
             self.sparql_host,
             self.sparql_port
-            # self.graph_name #FIXME Does not work... it seems.
+            #self.graph_name #FIXME Does not work... it seems.
         )
         # print ("Sparql Query:", query)
-        rc = peng.create(**kw)
+        rc=peng.create(**kw)
         for row in peng.query(query=ask):
             yield self.unpack_responce(row)
 
     def unpack_responce(self, response):
-        r = response['Row']
-        args = r['args']
+        r=response['Row']
+        args=r['args']
         rc = [self.unpack_arg(a) for a in args]
         # if len(rc)==1:
         # rc=rc[0]  # FIXME! Is it a cultural behaviour - unbrace singular
@@ -316,38 +313,38 @@ class ClioPatria(RDFStorage):
         return rc
 
     def unpack_arg(self, a):
-        if type(a) != dict:
-            if a == '$null$':
+        if type(a)!=dict:
+            if a=='$null$':
                 return None
-        f = a['functor']
-        args = a['args']
-        if f == 'literal':
-            larg = args[0]
-            if type(larg) == dict:
-                f = larg['functor']
-                a0, a1 = larg['args']
-                if f == 'type':
+        f=a['functor']
+        args=a['args']
+        if f=='literal':
+            larg=args[0]
+            if type(larg)==dict:
+                f=larg['functor']
+                a0,a1=larg['args']
+                if f=='type':
                     if a0.endswith("dateTime"):
-                        a2, tz = a1[:-6], a1[-6:]
-                        tz = tz.replace(':', '')
-                        a1 = a2 + tz
+                        a2,tz=a1[:-6],a1[-6:]
+                        tz=tz.replace(':','')
+                        a1=a2+tz
                         return datetime.datetime.strptime(a1, DATE_TIME_FORMAT_IN)
                     elif a0.endswith("integer"):
                         return int(a1)
                     elif a0.endswith("float"):
                         return float(a1)
                     return a1
-                elif f == 'lang':
-                    return a1  # FIXME loosing language tag
+                elif f=='lang':
+                    return a1 # FIXME loosing language tag
             return larg
-        return args[0]  # FIXME control rdf symbols
+        return args[0] # FIXME control rdf symbols
 
     def current_user(self, ths):
         """Return ID of current user."""
         if "user_id" in ths:
-            Id = ths["user_id"]
+            Id=ths["user_id"]
         else:
-            Id = "mailto:eugeneai@npir.ru"
+            Id="mailto:eugeneai@npir.ru"
         for _ in self.query(query="icc:person('{0}',E,ensure_exists)".format(Id)):
             return (Id, _['E'])
         raise RuntimeError('cannot instantiate current person')
@@ -359,7 +356,7 @@ class ClioPatria(RDFStorage):
 
     def body(self, target_id=None, body_id=None):
         """Return Annotation BNode if any in the document database """
-        t = "[Ann,Body]"
+        t="[Ann,Body]"
         if target_id and body_id:
             yield from self.query(query="icc:annotation_query(body,'{0}', Ann, Body, '{1}')".format(target_id, body_id),
                                   template=t)
@@ -374,25 +371,24 @@ class ClioPatria(RDFStorage):
 
 # FIXME make adapter, a configurated one.
 class DocMetadataStorage(ClioPatria):
-    graph_name = 'doc'
-    KEYS = {
-        "id": "_id"
+    graph_name='doc'
+    KEYS={
+        "id":"_id"
     }
 
-    NPM_FILTER = set([
+    NPM_FILTER=set([
         "nco:fullname",
         "nfo:tableOfContents",
         "nco:creator",
-    ])
+        ])
 
     def convert_one(self, k, v, ths):
         if k in self.KEYS:
             method_name = self.KEYS[k]
-            method = getattr(self, method_name)
+            method=getattr(self, method_name)
             yield from method(v, ths)
         else:
-            logger.debug("\n========================")
-            logger.debug("CNV: " + str(k) + " -> " + str(v)[:100])
+            logger.debug ("CNV: " + str(k) + " -> " + str(v)[:100])
             yield (None, None, None, str(k), str(v)[:100])
 
     def _id(self, hash_id, ths):
@@ -401,50 +397,50 @@ class DocMetadataStorage(ClioPatria):
             yield (anno, RDF['type'], OA['Annotation'])
             yield (anno, OA['motivatedBy'], OA['describing'])
             yield from provide_user(anno)
-            utcnow = datetime.datetime.utcnow()
-            ts = utcnow.strftime(DATE_TIME_FORMAT)
-            yield (anno, OA['annotatedAt'], Literal(ts, datatype=XSD.dateTime))
+            utcnow=datetime.datetime.utcnow()
+            ts=utcnow.strftime(DATE_TIME_FORMAT)
+            yield (anno, OA['annotatedAt'], Literal(ts,datatype=XSD.dateTime))
             yield (anno, OA['hasTarget'], target)
 
         def provide_user(anno):
-            (user_id, user) = self.current_user(ths)
-            user = BNode(user)
+            (user_id, user)=self.current_user(ths)
+            user=BNode(user)
             yield (anno, OA['annotatedBy'], user)
 
         def provide_body(anno, body, ths):
-            if not 'text-id' in ths:  # FIXME No annotation body!
+            if not 'text-id' in ths: # FIXME No annotation body!
                 return
             if body == None:
-                body = BNode()
-            body_id = ths['text-id']
+                body=BNode()
+            body_id=ths['text-id']
             yield (anno, OA['hasBody'], body)
             # yield (body, RDF['type'], CNT['ContextAsText'])
             yield (body, NIE['identifier'], Literal(body_id))
-            mt = None
-            html = plain = False
-            rdf_a = NFO.HtmlDocument
-            # recoll-meta
+            mt=None
+            html=plain=False
+            rdf_a=NFO.HtmlDocument
+            #recoll-meta
             if "text|mimetype" in ths:
-                mt = ths['text|mimetype']
-            else:  # let's guess. FIXME CPU consuming and very stupid.
+                mt=ths['text|mimetype']
+            else: # let's guess. FIXME CPU consuming and very stupid.
                 if ths['text-body'].upper().find("</BODY") >= 0:
-                    mt = "text/html"
+                    mt="text/html"
                 else:
-                    mt = "text/plain"
-            html = mt.endswith("html")
-            plain = mt.endswith("plain")
+                    mt="text/plain"
+            html=mt.endswith("html")
+            plain=mt.endswith("plain")
             if html:
                 yield (body, RDF['type'], NFO['HtmlDocument'])
             if plain:
                 yield (body, RDF['type'], NFO['PlainTextDocument'])
             yield (body, NMO['mimeType'], Literal(mt))
 
-        targetExists = False
-        bodyExists = False
-        anno = None
+        targetExists=False
+        bodyExists=False
+        anno=None
 
         for anno, target in self.annotation(hash_id):
-            targetExists = True
+            targetExists=True
             break
         else:
             target = BNode()
@@ -459,31 +455,33 @@ class DocMetadataStorage(ClioPatria):
                 yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
             else:
                 yield (target, RDF['type'], NFO['Document'])
+            # yield from self.p("Path-Name", target, NFO['fileName'], ths)
             yield from self.p("File-Name", target, NFO['fileName'], ths)
             yield from provide_body(anno, None, ths)
             return
 
-        if not 'text-id' in ths:  # FIXME No annotation body!
+        if not 'text-id' in ths: # FIXME No annotation body!
             return
 
-        body_id = ths['text-id']
-        ann1 = None
-        body = None
+        body_id=ths['text-id']
+        ann1=None
+        body=None
         for ann1, body in self.body(body_id=body_id):
-            bodyExists = ann1 == anno
+            bodyExists = ann1==anno
             if bodyExists:
                 return
         if ann1 is None:
             if anno is not None:
-                ann1 = anno
+                ann1=anno
             else:
-                ann1 = BNode()
+                ann1=BNode()
                 yield from provide_annotation(ann1, target)
             yield from provide_body(ann1, None, ths)
             return
         else:
             yield (ann1, OA['hasTarget'], target)
             return
+
 
     def p(self, key, s, o, ths, cls=Literal):
         if key in ths:
@@ -494,36 +492,37 @@ class DocMetadataStorage(ClioPatria):
     def rdf(self, s, ths, filter_out=None):
         """Generate all found rdf relations,
         except mentioned in thw filter_out set."""
-        keys = list(ths.keys())
+        keys=list(ths.keys())
         # logger.debug ("Keys: " + repr(keys))
         for key in keys:
-            okey = key
-            val = ths[key]
-            oval = val
-            logger.debug("->>> " + key + " : " + str(val)[:30])
-            ks = key.split(":", maxsplit=1)
-            if len(ks) != 2:
+            okey=key
+            val=ths[key]
+            oval=val
+            logger.debug ("->>> " + key + " : " + str(val)[:30])
+            ks=key.split(":", maxsplit=1)
+            if len(ks)!=2:
                 continue
             if key in filter_out:
                 continue
-            key = ou(key)
+            key=ou(key)
             if type(val) in [int, float]:
                 yield (s, key, Literal(val), okey, str(oval)[:100])
                 continue
             if val.startswith('"') and val.endswith('"'):
-                val = val.strip('"')
+                val=val.strip('"')
                 yield (s, key, Literal(val), okey, str(oval)[:100])
                 continue
             if val.startswith("'") and val.endswith("'"):
-                val = val.strip("'")
+                val=val.strip("'")
                 yield (s, key, Literal(val), okey, str(oval)[:100])
                 continue
-            vs = val.split(":", maxsplit=1)
-            if len(vs) != 2:
+            vs=val.split(":", maxsplit=1)
+            if len(vs)!=2:
                 logger.warning("Strange object value: " +
                                str(val) + " for property: " + str(key))
                 continue
             yield (s, key, ou(val), okey, str(oval)[:100])
+
 
 
 def ou(lit):
@@ -531,20 +530,20 @@ def ou(lit):
     space object XXX.yyy"""
 
     #print ("Got lit: " + str(lit))
-    if lit.find(',') >= 0:
+    if lit.find(',')>=0:
         return None
-    if lit.find(' ') >= 0:
+    if lit.find(' ')>=0:
         return None
-    rc = lit.split(":")
-    if len(rc) > 2:
+    rc=lit.split(":")
+    if len(rc)>2:
         return None
     ns, ent = rc
     try:
-        ns = NAMESPACES[ns]
+        ns=NAMESPACES[ns]
     except KeyError:
         return None
     try:
-        rc = ns[ent]
+        rc=ns[ent]
     except Exception:
-        rc = None
+        rc=None
     return rc
