@@ -505,7 +505,7 @@ class DocMetadataStorage(ClioPatria):
         if any"""
         if type(keys) not in [tuple, list]:
             keys = [keys]
-        logger.debug("P: find {} in {}".format(keys, pformat(ths)))
+        # logger.debug("P: find {} in {}".format(keys, pformat(ths)))
         for key in keys:
             if key in ths:
                 yield (s, o, cls(ths[key]), key)
