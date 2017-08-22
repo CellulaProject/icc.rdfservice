@@ -8,9 +8,10 @@ import logging
 from icc.rdfservice.namespace import NFO, RDF, NAMESPACES, OA, NIE, NMO, XSD
 from rdflib import Literal, BNode, URIRef
 from zope.component import getUtility, getSiteManager
-from zope.interfaces import implementer, Interface
+from zope.interface import implementer, Interface
 from .interfaces import IRDFService, IRDFStorage
 from .interfaces import IGraph
+from pprint import pformat
 
 import pengines
 import random
@@ -463,10 +464,10 @@ class DocMetadataStorage(ClioPatria):
             anno = BNode()
 
         if not targetExists:
-            # New annotatio, body and target
+            # New annotation, body and target
             yield from provide_annotation(anno, target)
             yield (target, NIE['identifier'], Literal(hash_id))
-            yield from self.p(["Content-Type", "mimeType"],
+            yield from self.p(["Content-Type", "mimetype"],
                               target, NMO['mimeType'], ths)
             if "rdf:type" in ths:
                 yield from self.rdf(target, ths, filter_out=self.NPM_FILTER)
@@ -504,9 +505,11 @@ class DocMetadataStorage(ClioPatria):
         if any"""
         if type(keys) not in [tuple, list]:
             keys = [keys]
+        logger.debug("P: find {} in {}".format(keys, pformat(ths)))
         for key in keys:
-            yield (s, o, cls(ths[key]), key)
-            break
+            if key in ths:
+                yield (s, o, cls(ths[key]), key)
+                break
         else:
             yield (None, None, None, key)
 
